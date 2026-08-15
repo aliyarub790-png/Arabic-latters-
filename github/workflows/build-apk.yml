@@ -1,4 +1,3 @@
-
 name: Build Arabic Letters Game APK
 
 on:
@@ -9,30 +8,45 @@ on:
 
 jobs:
   build:
+    name: Build APK
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Find and extract game ZIP
+      - name: Find game ZIP
         shell: bash
         run: |
           set -e
 
-          ZIP_FILE=$(find . -maxdepth 1 -type f -name "*.zip" | head -n 1)
+          ZIP_FILE=$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -name "*.zip" | head -n 1)
 
           if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: No ZIP file found."
+            echo "ERROR: Game ZIP file was not found."
             exit 1
           fi
 
-          echo "Found ZIP: $ZIP_FILE"
+          echo "Game ZIP found:"
+          echo "$ZIP_FILE"
 
+          echo "ZIP_FILE=$ZIP_FILE" >> "$GITHUB_ENV"
+
+      - name: Extract game
+        shell: bash
+        run: |
+          set -e
+
+          rm -rf game
           mkdir -p game
+
           unzip -o "$ZIP_FILE" -d game
 
-      - name: Find HTML file
+          echo "Files inside game:"
+          find game -maxdepth 3 -type f -print
+
+      - name: Check index.html
         shell: bash
         run: |
           set -e
@@ -40,11 +54,12 @@ jobs:
           HTML_FILE=$(find game -type f -name "index.html" | head -n 1)
 
           if [ -z "$HTML_FILE" ]; then
-            echo "ERROR: index.html not found."
+            echo "ERROR: index.html was not found inside the ZIP."
             exit 1
           fi
 
-          echo "Found HTML: $HTML_FILE"
+          echo "index.html found:"
+          echo "$HTML_FILE"
 
           echo "HTML_FILE=$HTML_FILE" >> "$GITHUB_ENV"
 
@@ -68,7 +83,6 @@ jobs:
 
           mkdir -p android-app/app/src/main/java/com/arabicletters/game
           mkdir -p android-app/app/src/main/assets
-          mkdir -p android-app/app/src/main/res/mipmap-hdpi
           mkdir -p android-app/app/src/main/res/values
 
           cp "$HTML_FILE" android-app/app/src/main/assets/index.html
@@ -117,9 +131,6 @@ android {
         versionName '1.0'
     }
 }
-
-dependencies {
-}
 EOF
 
           cat > android-app/app/src/main/res/values/strings.xml <<'EOF'
@@ -128,124 +139,8 @@ EOF
 </resources>
 EOF
 
-          cat > android-app/app/src/main/AndroidManifest.xml <<'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-    <uses-permission android:name="android.permission.INTERNET" />
-
-    <application
-        android:allowBackup="true"
-        android:label="@string/app_name"
-        android:theme="@style/AppTheme"
-        android:usesCleartextTraffic="true">
-
-        <activity
-            android:name=".MainActivity"
-            android:exported="true">
-
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-
-        </activity>
-
-    </application>
-
-</manifest>
-EOF
-
           cat > android-app/app/src/main/res/values/styles.xml <<'EOF'
 <resources>
     <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
-        <item name="android:fontFamily">sans</item>
         <item name="android:windowFullscreen">true</item>
-        <item name="android:colorAccent">#6750A4</item>
-    </style>
-</resources>
-EOF
-
-          cat > android-app/app/src/main/java/com/arabicletters/game/MainActivity.java <<'EOF'
-package com.arabicletters.game;
-
-import android.app.Activity;
-import android.os.Bundle;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
-
-public class MainActivity extends Activity {
-
-    private WebView webView;
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
-        webView = new WebView(this);
-
-        WebView.setWebContentsDebuggingEnabled(false);
-
-        WebSettings settings = webView.getSettings();
-
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        settings.setAllowFileAccess(true);
-        settings.setAllowContentAccess(true);
-        settings.setMediaPlaybackRequiresUserGesture(false);
-
-        webView.setWebViewClient(new WebViewClient());
-
-        webView.loadUrl("file:///android_asset/index.html");
-
-        setContentView(webView);
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) {
-            webView.goBack();
-        } else {
-            super.onBackPressed();
-        }
-    }
-}
-EOF
-
-          cd android-app
-
-          gradle wrapper --gradle-version 8.9
-
-      - name: Build APK
-        shell: bash
-        run: |
-          set -e
-
-          cd android-app
-
-          chmod +x gradlew
-
-          ./gradlew assembleDebug --stacktrace
-
-      - name: Verify APK
-        shell: bash
-        run: |
-          set -e
-
-          APK=$(find android-app/app/build/outputs/apk/debug -type f -name "*.apk" | head -n 1)
-
-          if [ -z "$APK" ]; then
-            echo "ERROR: APK was not created."
-            exit 1
-          fi
-
-          echo "APK created successfully:"
-          ls -lh "$APK"
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: arabic-letters-game-apk
-          path: android-app/app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
+        <
