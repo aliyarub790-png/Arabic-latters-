@@ -99,7 +99,7 @@ plugins {
     id 'com.android.application'
 }
 
-android {
+pluginManagement {android {
     namespace 'com.yarub.arabicletters'
     compileSdk 35
 
