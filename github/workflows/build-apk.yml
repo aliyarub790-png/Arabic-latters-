@@ -1,107 +1,60 @@
 name: Build Arabic Letters Game APK
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   build:
-    name: Build Android APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify game file
+      - name: Check game
         run: |
-          set -e
-
-          echo "Checking repository..."
-
-          if [ ! -f "index.html" ]; then
-            echo "ERROR: index.html was not found in repository root."
-            echo "Repository files:"
-            find . -maxdepth 2 -type f -print
-            exit 1
-          fi
-
-          echo "Game file found:"
-          ls -lh index.html
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
+          test -f index.html
+          echo "index.html found"
 
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: '17'
 
-      - name: Setup Android SDK
+      - name: Setup Android
         uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK packages
+      - name: Install Android SDK
         run: |
           sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
       - name: Install Cordova
-        run: |
-          npm install -g cordova
+        run: npm install -g cordova
 
-      - name: Create Android project
+      - name: Create app
         run: |
-          cordova create arabic-letters-app \
-            com.yarubacademy.arabicletters \
-            "تعلم الحروف العربية"
+          cordova create app com.yarubacademy.arabicletters "تعلم الحروف العربية"
 
       - name: Copy game
         run: |
-          set -e
+          rm -rf app/www/*
+          cp index.html app/www/index.html
 
-          rm -rf arabic-letters-app/www/*
-
-          cp index.html arabic-letters-app/www/index.html
-
-          echo "Game copied successfully."
-          ls -lh arabic-letters-app/www/index.html
-
-      - name: Add Android platform
-        working-directory: arabic-letters-app
-        run: |
-          cordova platform add android@15.0.0
+      - name: Add Android
+        working-directory: app
+        run: cordova platform add android@15.0.0
 
       - name: Build APK
-        working-directory: arabic-letters-app
-        run: |
-          cordova build android --debug
-
-      - name: Find APK
-        run: |
-          set -e
-
-          echo "Searching for APK..."
-
-          APK_FILE=$(find arabic-letters-app/platforms/android -type f -name "*.apk" | head -n 1)
-
-          if [ -z "$APK_FILE" ]; then
-            echo "ERROR: APK was not created."
-            find arabic-letters-app/platforms/android -type f | tail -n 100
-            exit 1
-          fi
-
-          echo "APK found:"
-          ls -lh "$APK_FILE"
-
-          echo "APK_FILE=$APK_FILE" >> "$GITHUB_ENV"
+        working-directory: app
+        run: cordova build android --debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: arabic-letters-game-apk
-          path: ${{ env.APK_FILE }}
+          name: Arabic-Letters-Game-APK
+          path: app/platforms/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
